@@ -852,8 +852,13 @@
                 `;
 
                 columnDiv.innerHTML = cardsHTML;
-                setupCardDragListeners(column.id);
-                setupDropZone(column.id);
+
+                // Setup event listeners AFTER DOM is rendered
+                setTimeout(() => {
+                    setupDropZone(column.id);
+                    setupCardDragListeners(column.id);
+                }, 0);
+
                 boardDiv.appendChild(columnDiv);
             });
         }
@@ -862,22 +867,29 @@
             const cardsContainer = document.getElementById(`${columnId}-cards`);
             if (!cardsContainer) return;
 
-            const cards = cardsContainer.querySelectorAll('.card');
+            // Event delegation for drag start
+            cardsContainer.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.card');
+                if (!card) return;
 
-            cards.forEach(card => {
-                card.addEventListener('dragstart', (e) => {
-                    draggedCard = card;
-                    draggedTaskId = card.dataset.taskId;
-                    card.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                });
+                draggedCard = card;
+                draggedTaskId = card.dataset.taskId;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', draggedTaskId);
+                console.log('✓ Drag started for task:', draggedTaskId);
+            }, true);
 
-                card.addEventListener('dragend', () => {
-                    card.classList.remove('dragging');
-                    draggedCard = null;
-                    draggedTaskId = null;
-                });
-            });
+            // Event delegation for drag end
+            cardsContainer.addEventListener('dragend', (e) => {
+                const card = e.target.closest('.card');
+                if (!card) return;
+
+                card.classList.remove('dragging');
+                console.log('✓ Drag ended');
+                draggedCard = null;
+                draggedTaskId = null;
+            }, true);
         }
 
         function setupDropZone(columnId) {
@@ -886,23 +898,49 @@
 
             if (!cardsContainer || !columnDiv) return;
 
+            // Handle dragover on container
             cardsContainer.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 columnDiv.classList.add('drag-over');
+                console.log('Dragover in column:', columnId);
             });
 
-            cardsContainer.addEventListener('dragleave', (e) => {
-                if (e.target === cardsContainer) {
-                    columnDiv.classList.remove('drag-over');
+            // Handle dragover on column div too
+            columnDiv.addEventListener('dragover', (e) => {
+                if (e.target === columnDiv) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    columnDiv.classList.add('drag-over');
                 }
             });
 
+            // Remove drag-over class on leave
+            cardsContainer.addEventListener('dragleave', (e) => {
+                columnDiv.classList.remove('drag-over');
+            });
+
+            // Handle drop on container
             cardsContainer.addEventListener('drop', async (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 columnDiv.classList.remove('drag-over');
                 if (draggedTaskId) {
+                    console.log(`✓ Drop in column ${columnId}, moving task ${draggedTaskId}`);
                     await moveCard(draggedTaskId, columnId);
+                }
+            });
+
+            // Handle drop on column div
+            columnDiv.addEventListener('drop', async (e) => {
+                if (e.target === columnDiv) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    columnDiv.classList.remove('drag-over');
+                    if (draggedTaskId) {
+                        console.log(`✓ Drop in column ${columnId}, moving task ${draggedTaskId}`);
+                        await moveCard(draggedTaskId, columnId);
+                    }
                 }
             });
         }
@@ -954,17 +992,25 @@
         async function moveCard(taskId, columnId) {
             setStatus('Moving...', true);
             try {
+                console.log(`API Call: Moving task ${taskId} to ${columnId}`);
                 const response = await fetch(`${API_BASE}/tasks/${taskId}/move`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ column: columnId })
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                console.log('Move result:', result);
 
                 await loadTasks();
                 setStatus('Ready');
             } catch (error) {
+                console.error('Move card error:', error);
                 showError(`Failed to move task: ${error.message}`);
                 setStatus('Error');
             }
