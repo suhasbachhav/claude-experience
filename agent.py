@@ -5,6 +5,7 @@
 import anthropic
 import json
 import os
+from db_config import init_db, query_order
 
 # ─────────────────────────────────────────────────────────────
 # STEP 2: Create the client
@@ -56,14 +57,9 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
     """Run a tool and return its result as a JSON string."""
     if tool_name == "lookup_order":
         order_id = tool_input.get("order_id", "")
-        # Mock database lookup
-        mock_orders = {
-            "4821": {"status": "shipped",    "eta": "July 30", "carrier": "FedEx"},
-            "9910": {"status": "processing", "eta": "Aug 02",  "carrier": "UPS"},
-            "0042": {"status": "delivered",  "eta": "July 25", "carrier": "DHL"},
-        }
-        if order_id in mock_orders:
-            return json.dumps(mock_orders[order_id])
+        order = query_order(order_id)
+        if order:
+            return json.dumps(order)
         else:
             return json.dumps({"error": f"Order {order_id} not found"})
 
@@ -232,6 +228,7 @@ def run_agent(user_message: str) -> str:
 # STEP 6: Run it
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    init_db()
     print("Running agent...")
     answer = run_agent("Where is my order #4821?")
     print(f"\nFinal answer: {answer}")

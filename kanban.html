@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Board</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: white;
+            font-size: 32px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .status {
+            color: white;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status.loading::after {
+            content: ' ⟳';
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .column {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 16px;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+        }
+
+        .column:hover {
+            box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .column-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .task-count {
+            background-color: #667eea;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .cards {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding-right: 8px;
+            margin-bottom: 12px;
+        }
+
+        .cards::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .cards::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .cards::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .cards::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+
+        .card {
+            background-color: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: move;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .card-text {
+            flex: 1;
+            word-break: break-word;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .card-delete {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .card-delete:hover {
+            background-color: #ff5252;
+            transform: scale(1.05);
+        }
+
+        .add-card-form {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .add-card-form input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .add-card-form input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .add-card-form button {
+            background-color: #667eea;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .add-card-form button:hover {
+            background-color: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .add-card-form button:active {
+            transform: translateY(0);
+        }
+
+        .drag-over {
+            background-color: rgba(102, 126, 234, 0.1) !important;
+            border: 2px dashed #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 13px;
+        }
+
+        .error {
+            background-color: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Kanban Board</h1>
+            <div class="status" id="status">Ready</div>
+        </div>
+        <div id="error-container"></div>
+        <div class="board" id="board"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001/api';
+        let draggedCard = null;
+        let draggedTaskId = null;
+
+        async function loadTasks() {
+            setStatus('Loading...', true);
+            try {
+                const response = await fetch(`${API_BASE}/tasks`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const tasks = await response.json();
+                renderBoard(tasks);
+                setStatus('Ready');
+            } catch (error) {
+                showError(`Failed to load tasks: ${error.message}`);
+                setStatus('Error');
+            }
+        }
+
+        function renderBoard(tasks) {
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+
+            const columns = [
+                { id: 'todo', title: 'To Do', icon: '📝' },
+                { id: 'inprogress', title: 'In Progress', icon: '⚙️' },
+                { id: 'done', title: 'Done', icon: '✅' }
+            ];
+
+            columns.forEach(column => {
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'column';
+                columnDiv.id = column.id;
+
+                const columnTasks = tasks[column.id] || [];
+
+                columnDiv.innerHTML = `
+                    <div class="column-header">
+                        <div class="column-title">${column.icon} ${column.title}</div>
+                        <div class="task-count">${columnTasks.length}</div>
+                    </div>
+                    <div class="cards" id="${column.id}-cards"></div>
+                    <div class="add-card-form">
+                        <input type="text" id="${column.id}-input" placeholder="Add a task..." />
+                        <button onclick="addCard('${column.id}')">Add Task</button>
+                    </div>
+                `;
+
+                const cardsContainer = columnDiv.querySelector(`#${column.id}-cards`);
+                if (columnTasks.length === 0) {
+                    cardsContainer.innerHTML = '<div class="empty-state">No tasks yet</div>';
+                } else {
+                    columnTasks.forEach(task => {
+                        cardsContainer.appendChild(createCardElement(task.id, task.title, column.id));
+                    });
+                }
+
+                boardDiv.appendChild(columnDiv);
+                setupDropZone(column.id);
+            });
+        }
+
+        function createCardElement(taskId, text, columnId) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.taskId = taskId;
+
+            const cardText = document.createElement('span');
+            cardText.className = 'card-text';
+            cardText.textContent = text;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'card-delete';
+            deleteBtn.textContent = '✕';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteCard(taskId);
+            };
+
+            card.appendChild(cardText);
+            card.appendChild(deleteBtn);
+
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = card;
+                draggedTaskId = taskId;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                draggedCard = null;
+                draggedTaskId = null;
+            });
+
+            return card;
+        }
+
+        function setupDropZone(columnId) {
+            const cardsContainer = document.getElementById(`${columnId}-cards`);
+            const columnDiv = document.getElementById(columnId);
+
+            cardsContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                columnDiv.classList.add('drag-over');
+            });
+
+            cardsContainer.addEventListener('dragleave', (e) => {
+                if (e.target === cardsContainer) {
+                    columnDiv.classList.remove('drag-over');
+                }
+            });
+
+            cardsContainer.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                columnDiv.classList.remove('drag-over');
+                if (draggedTaskId) {
+                    await moveCard(draggedTaskId, columnId);
+                }
+            });
+        }
+
+        async function addCard(columnId) {
+            const input = document.getElementById(columnId + '-input');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            setStatus('Adding...', true);
+            try {
+                const response = await fetch(`${API_BASE}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: text, column: columnId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                input.value = '';
+                await loadTasks();
+                setStatus('Ready');
+            } catch (error) {
+                showError(`Failed to add task: ${error.message}`);
+                setStatus('Error');
+            }
+        }
+
+        async function deleteCard(taskId) {
+            if (!confirm('Delete this task?')) return;
+
+            setStatus('Deleting...', true);
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                await loadTasks();
+                setStatus('Ready');
+            } catch (error) {
+                showError(`Failed to delete task: ${error.message}`);
+                setStatus('Error');
+            }
+        }
+
+        async function moveCard(taskId, columnId) {
+            setStatus('Moving...', true);
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${taskId}/move`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ column: columnId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                await loadTasks();
+                setStatus('Ready');
+            } catch (error) {
+                showError(`Failed to move task: ${error.message}`);
+                setStatus('Error');
+            }
+        }
+
+        function setStatus(message, loading = false) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.classList.toggle('loading', loading);
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            const errorEl = document.createElement('div');
+            errorEl.className = 'error';
+            errorEl.textContent = message;
+            errorContainer.appendChild(errorEl);
+            setTimeout(() => errorEl.remove(), 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTasks);
+
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.id && e.target.id.includes('-input')) {
+                const columnId = e.target.id.replace('-input', '');
+                addCard(columnId);
+            }
+        });
+    </script>
+</body>
+</html>
