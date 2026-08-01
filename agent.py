@@ -58,9 +58,9 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         order_id = tool_input.get("order_id", "")
         # Mock database lookup
         mock_orders = {
-            "4821": {"status": "shipped",    "eta": "March 30", "carrier": "FedEx"},
-            "9910": {"status": "processing", "eta": "April 2",  "carrier": "UPS"},
-            "0042": {"status": "delivered",  "eta": "March 25", "carrier": "DHL"},
+            "4821": {"status": "shipped",    "eta": "July 30", "carrier": "FedEx"},
+            "9910": {"status": "processing", "eta": "Aug 02",  "carrier": "UPS"},
+            "0042": {"status": "delivered",  "eta": "July 25", "carrier": "DHL"},
         }
         if order_id in mock_orders:
             return json.dumps(mock_orders[order_id])
@@ -144,7 +144,7 @@ def handle_tool_call(tool_name: str, tool_id: str, tool_input: dict) -> dict:
             "content":     json.dumps({
                 "errorCategory": "internal",
                 "isRetryable":   False,
-                "description":   f"Unexpected error in {tool_name}: {str(e)}",
+                "description":   "Unexpected error in {tool_name}: {str(e)}",
             }),
         }
 
